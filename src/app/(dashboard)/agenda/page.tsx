@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { mockAgendamentos } from '@/lib/mock-data';
-import { Plus, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { mockAgendamentos, mockPacientes } from '@/lib/mock-data';
+import { Plus, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import { Agendamento } from '@/lib/types';
 
 function addDays(date: Date, days: number) {
@@ -20,6 +20,17 @@ export default function AgendaPage() {
     const d = new Date();
     d.setDate(d.getDate() - d.getDay() + 1); // Monday
     return d;
+  });
+
+  const [showModal, setShowModal] = useState(false);
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>(mockAgendamentos);
+  const [form, setForm] = useState({
+    pacienteId: '',
+    data: formatDate(new Date()),
+    hora: '09:00',
+    tipo: 'consulta' as 'consulta' | 'retorno' | 'adaptacao',
+    status: 'agendado' as 'agendado' | 'confirmado' | 'realizado' | 'cancelado',
+    observacoes: '',
   });
 
   const weekDays = Array.from({ length: 6 }, (_, i) => addDays(startDate, i));
@@ -58,12 +69,40 @@ export default function AgendaPage() {
 
   function agendamentoForDay(date: Date): Agendamento[] {
     const d = formatDate(date);
-    return mockAgendamentos
+    return agendamentos
       .filter(a => a.data === d)
       .sort((a, b) => a.hora.localeCompare(b.hora));
   }
 
   const isToday = (d: Date) => formatDate(d) === formatDate(new Date());
+
+  function handleSalvar() {
+    if (!form.pacienteId || !form.data || !form.hora) return;
+    const paciente = mockPacientes.find(p => p.id === form.pacienteId);
+    if (!paciente) return;
+
+    const novo: Agendamento = {
+      id: `ag-${Date.now()}`,
+      pacienteId: form.pacienteId,
+      pacienteNome: paciente.nome,
+      data: form.data,
+      hora: form.hora,
+      tipo: form.tipo,
+      status: form.status,
+      observacoes: form.observacoes,
+    };
+
+    setAgendamentos(prev => [...prev, novo]);
+    setShowModal(false);
+    setForm({
+      pacienteId: '',
+      data: formatDate(new Date()),
+      hora: '09:00',
+      tipo: 'consulta',
+      status: 'agendado',
+      observacoes: '',
+    });
+  }
 
   return (
     <div className="page-container animate-fadeIn">
@@ -72,7 +111,7 @@ export default function AgendaPage() {
           <h1 className="page-title">Agenda</h1>
           <p className="page-subtitle">Visão semanal dos agendamentos</p>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={16} />
           Novo agendamento
         </button>
@@ -161,6 +200,124 @@ export default function AgendaPage() {
           </div>
         ))}
       </div>
+
+      {/* Modal Novo Agendamento */}
+      {showModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+        >
+          <div className="card" style={{ width: '100%', maxWidth: 480, padding: 28, position: 'relative' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-text)', margin: 0 }}>Novo Agendamento</h2>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setShowModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Paciente */}
+              <div className="form-group">
+                <label className="form-label">Paciente *</label>
+                <select
+                  className="form-input"
+                  value={form.pacienteId}
+                  onChange={e => setForm(f => ({ ...f, pacienteId: e.target.value }))}
+                >
+                  <option value="">Selecione o paciente</option>
+                  {mockPacientes.map(p => (
+                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Data e Hora */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Data *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={form.data}
+                    onChange={e => setForm(f => ({ ...f, data: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Hora *</label>
+                  <input
+                    type="time"
+                    className="form-input"
+                    value={form.hora}
+                    onChange={e => setForm(f => ({ ...f, hora: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Tipo */}
+              <div className="form-group">
+                <label className="form-label">Tipo</label>
+                <select
+                  className="form-input"
+                  value={form.tipo}
+                  onChange={e => setForm(f => ({ ...f, tipo: e.target.value as typeof form.tipo }))}
+                >
+                  <option value="consulta">Consulta</option>
+                  <option value="retorno">Retorno</option>
+                  <option value="adaptacao">Adaptação de Lentes</option>
+                </select>
+              </div>
+
+              {/* Status */}
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select
+                  className="form-input"
+                  value={form.status}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value as typeof form.status }))}
+                >
+                  <option value="agendado">Agendado</option>
+                  <option value="confirmado">Confirmado</option>
+                </select>
+              </div>
+
+              {/* Observações */}
+              <div className="form-group">
+                <label className="form-label">Observações</label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  placeholder="Observações opcionais..."
+                  value={form.observacoes}
+                  onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))}
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 12, marginTop: 24, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSalvar}
+                disabled={!form.pacienteId || !form.data || !form.hora}
+              >
+                <Plus size={16} />
+                Salvar Agendamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -55,6 +55,7 @@ export interface Agendamento {
   hora: string;
   tipo: 'consulta' | 'retorno' | 'adaptacao';
   status: 'agendado' | 'confirmado' | 'realizado' | 'cancelado';
+  observacoes?: string;
 }
 
 export interface Profissional {
